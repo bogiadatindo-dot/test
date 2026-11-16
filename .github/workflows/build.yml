@@ -13,32 +13,40 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@v4
 
-      - name: Install Dependencies
+      - name: Install Dependencies & Toolchain
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential fakeroot git subversion perl clang lld libtinfo-dev curl unzip
+          sudo apt-get install -y clang lld curl unzip
+          
+          # Tải trình liên kết Mach-O (ld64) và ldid chuẩn của Theos cho Linux
+          mkdir -p ~/bin
+          curl -L https://github.com/ProcursusTeam/ldid/releases/latest/download/ldid_linux_x86_64 -o ~/bin/ldid
+          chmod +x ~/bin/ldid
 
-      - name: Install Theos & iOS SDK
+      - name: Download Latest iOS SDK
         run: |
-          git clone --recursive https://github.com/theos/theos.git ~/theos
           curl -LO https://github.com/theos/sdks/archive/master.zip
           unzip -q master.zip
-          mv sdks-master/*.sdk ~/theos/sdks/
+          mkdir -p ~/sdks
+          mv sdks-master/*.sdk ~/sdks/
           rm -rf master.zip sdks-master
 
       - name: Compile KeyAuth.dylib
         run: |
-          export THEOS=~/theos
-          SDK_PATH=$(ls -d ~/theos/sdks/iPhoneOS*.sdk | tail -n 1)
+          # Sắp xếp đúng theo phiên bản số (sort -V) để lấy SDK mới nhất thay vì 9.3
+          SDK_PATH=$(ls -d ~/sdks/iPhoneOS*.sdk | sort -V | tail -n 1)
           echo "Using SDK: $SDK_PATH"
           
-          ~/theos/toolchain/linux/iphone/bin/clang \
-            -target arm64-apple-ios13.0 \
+          # Dùng clang của Ubuntu kết hợp trình liên kết ld64.lld của LLVM
+          clang -target arm64-apple-ios13.0 \
+            -fuse-ld=lld \
             -dynamiclib -fobjc-arc \
             -isysroot "$SDK_PATH" \
             -F "$SDK_PATH/System/Library/Frameworks" \
             -framework Foundation -framework UIKit \
             KeyAuth.m -o KeyAuth.dylib
+            
+          ~/bin/ldid -S KeyAuth.dylib
 
       - name: Upload Dylib Artifact
         uses: actions/upload-artifact@v4
