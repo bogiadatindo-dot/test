@@ -229,12 +229,12 @@ static NSTimer *expiryTimer = nil;
         return;
     }
 
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Đăng Nhập Key"
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Teddy Team"
                                                                    message:message
                                                             preferredStyle:UIAlertControllerStyleAlert];
 
     [alert addTextFieldWithConfigurationHandler:^(UITextField * _Nonnull textField) {
-        textField.placeholder = @"Nhập mã key của bạn...";
+        textField.placeholder = @"Nhập mã key của bạn,nếu chưa có key ib admin...";
         textField.text = prefill ?: @"";
         textField.clearButtonMode = UITextFieldViewModeWhileEditing;
     }];
