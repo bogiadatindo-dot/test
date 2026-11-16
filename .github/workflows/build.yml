@@ -1,0 +1,35 @@
+name: Build iOS Dylib (Fast Ubuntu)
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest # Máy ảo Linux khởi động tức thì, không phải xếp hàng
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Setup LLVM & iOS SDK
+        run: |
+          sudo apt-get update && sudo apt-get install -y clang lld wget unzip
+          wget -q https://github.com/xybp888/iOS-SDKs/releases/download/iOS-SDKs/iPhoneOS16.5.sdk.zip -O sdk.zip
+          unzip -q sdk.zip -d ./sdk
+
+      - name: Compile KeyAuth.dylib
+        run: |
+          clang -target arm64-apple-ios13.0 \
+            -dynamiclib -fobjc-arc \
+            -isysroot ./sdk/iPhoneOS16.5.sdk \
+            -F ./sdk/iPhoneOS16.5.sdk/System/Library/Frameworks \
+            -framework Foundation -framework UIKit \
+            KeyAuth.m -o KeyAuth.dylib
+
+      - name: Upload Dylib Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: KeyAuth-dylib
+          path: KeyAuth.dylib
