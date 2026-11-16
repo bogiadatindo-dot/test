@@ -1,6 +1,6 @@
 #import <UIKit/UIKit.h>
 
-// Sử dụng GitHub API trỏ thẳng tới file "key" trong repo bogiadatindo-dot/key để đồng bộ 0 giây (không bị cache 5 phút)
+// Sử dụng GitHub API trỏ thẳng tới file "key" trong repo bogiadatindo-dot/key để đồng bộ 0 giây (không bị cache)
 #define GITHUB_API_URL @"https://api.github.com/repos/bogiadatindo-dot/key/contents/key"
 
 #define SAVED_KEY_PREF @"SavedUserLicenseKey"
@@ -113,7 +113,6 @@ static NSTimer *expiryTimer = nil;
         return;
     }
 
-    // Thêm timestamp và dùng phiên ẩn danh (ephemeral) + Header chống cache tuyệt đối
     NSString *urlString = [NSString stringWithFormat:@"%@?t=%f", GITHUB_API_URL, [[NSDate date] timeIntervalSince1970]];
     NSURL *url = [NSURL URLWithString:urlString];
 
@@ -177,10 +176,8 @@ static NSTimer *expiryTimer = nil;
 
         if (!isKeyFound) {
             if (wasVerifiedBefore) {
-                // Nếu trước đó đã dùng key này rồi mà nay bị xóa khỏi GitHub -> Đá văng app
                 [self forceLogoutAndExitWithReason:@"Key của bạn đã bị thu hồi hoặc xóa khỏi hệ thống. Ứng dụng sẽ thoát!"];
             } else {
-                // Nếu vừa mới nhập key lần đầu mà chưa thấy (sai key hoặc GitHub chưa đồng bộ) -> Giữ nguyên key để bấm thử lại
                 [[NSUserDefaults standardUserDefaults] removeObjectForKey:SAVED_KEY_PREF];
                 [[NSUserDefaults standardUserDefaults] synchronize];
                 dispatch_async(dispatch_get_main_queue(), ^{
@@ -188,11 +185,9 @@ static NSTimer *expiryTimer = nil;
                 });
             }
         } else if (isExpired) {
-            // Key hết hạn -> Xóa key & Đá văng app
             NSString *msg = [NSString stringWithFormat:@"Key đã hết hạn lúc %@. Ứng dụng sẽ thoát để nhập Key mới!", expiryDisplay];
             [self forceLogoutAndExitWithReason:msg];
         } else {
-            // Key hợp lệ -> Đánh dấu đã xác thực thành công và bật đếm ngược
             [[NSUserDefaults standardUserDefaults] setBool:YES forKey:IS_VERIFIED_BEFORE];
             [[NSUserDefaults standardUserDefaults] synchronize];
 
@@ -223,7 +218,7 @@ static NSTimer *expiryTimer = nil;
     }
     
     if (!rootVC) {
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.8 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
             [self showKeyPromptWithMessage:message prefillKey:prefill];
         });
         return;
@@ -234,7 +229,7 @@ static NSTimer *expiryTimer = nil;
                                                             preferredStyle:UIAlertControllerStyleAlert];
 
     [alert addTextFieldWithConfigurationHandler:^(UITextField * _Nonnull textField) {
-        textField.placeholder = @"Nhập mã key của bạn,nếu chưa có key ib admin...";
+        textField.placeholder = @"Nhập mã key của bạn...";
         textField.text = prefill ?: @"";
         textField.clearButtonMode = UITextFieldViewModeWhileEditing;
     }];
@@ -286,8 +281,14 @@ static NSTimer *expiryTimer = nil;
 
 @end
 
+// Lắng nghe sự kiện app khởi động xong để đảm bảo UIWindow đã sẵn sàng hiện popup
 static void __attribute__((constructor)) initialize(void) {
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        [KeyManager checkLicense];
-    });
+    [[NSNotificationCenter defaultCenter] addObserverForName:UIApplicationDidFinishLaunchingNotification
+                                                      object:nil
+                                                       queue:[NSOperationQueue mainQueue]
+                                                  usingBlock:^(NSNotification * _Nonnull note) {
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.6 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            [KeyManager checkLicense];
+        });
+    }];
 }
